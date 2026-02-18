@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useRef } from 'react';
 import {
   View, TouchableOpacity, StyleSheet, useColorScheme,
-  Platform, SafeAreaView, Image,
+  Platform, Image, StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useSharedValue, useAnimatedStyle,
   withSpring, withTiming, runOnJS, Easing,
@@ -55,6 +56,7 @@ export default function TabLayout() {
   const [renderedKey, setRenderedKey] = useState('home');
   const scheme  = useColorScheme() ?? 'light';
   const colors  = MD3[scheme];
+  const insets  = useSafeAreaInsets();
   const { transition, animStyle } = usePageTransition();
   const { extensions } = useExtensions();
 
@@ -94,13 +96,18 @@ export default function TabLayout() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
+    <View style={{ flex: 1, backgroundColor: colors.surface, paddingTop: insets.top }}>
+      <StatusBar
+        translucent={false}
+        barStyle={scheme === 'dark' ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.surface}
+      />
       <View style={{ flex: 1, backgroundColor: colors.surface }}>
         <Animated.View style={[{ flex: 1 }, animStyle]}>
           {renderScreen()}
         </Animated.View>
 
-        <View style={[s.navWrapper, { paddingBottom: Platform.OS === 'ios' ? 8 : 16 }]}>
+        <View style={[s.navWrapper, { paddingBottom: insets.bottom > 0 ? insets.bottom : 16 }]}>
           <View style={[s.navContainer, { backgroundColor: colors.navBackground }]}>
             {tabs.map(tab => (
               <NavBtn key={tabKey(tab)} tab={tab} active={activeKey === tabKey(tab)}
@@ -109,7 +116,7 @@ export default function TabLayout() {
           </View>
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 

@@ -62,8 +62,6 @@ export default function HomeScreen() {
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
             returnKeyType="search"
-            // @ts-ignore - web only: remove native browser outline
-            outlineStyle={{ outline: 'none' }}
           />
           {query.length > 0 && (
             <MaterialCommunityIcons

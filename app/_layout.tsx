@@ -6,8 +6,11 @@ import { Platform } from 'react-native';
 import { useEffect } from 'react';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { ExtensionProvider } from './contexts/ExtensionContext';
+import { MediaPlayerProvider } from './contexts/MediaPlayerContext';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-export const unstable_settings = { anchor: '(tabs)' };
+// ✅ initialRouteName em vez do obsoleto anchor
+export const unstable_settings = { initialRouteName: '(tabs)' };
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -51,6 +54,8 @@ export default function RootLayout() {
   }, []);
 
   return (
+    <SafeAreaProvider>
+    <MediaPlayerProvider>
     <ExtensionProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack>
@@ -60,5 +65,7 @@ export default function RootLayout() {
         <StatusBar style="auto" />
       </ThemeProvider>
     </ExtensionProvider>
+    </MediaPlayerProvider>
+    </SafeAreaProvider>
   );
 }

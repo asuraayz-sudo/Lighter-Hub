@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, useColorScheme,
-  StatusBar, FlatList, Image, Platform,
+  StatusBar, FlatList, Image, Platform, Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useExtensions, InstalledExtension } from '../contexts/ExtensionContext';
 
@@ -23,7 +24,6 @@ const MD3 = {
   },
 };
 
-// Toast simples substituindo Alert
 function useToast() {
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const show = (msg: string, type: 'success' | 'error' = 'success') => {
@@ -33,15 +33,14 @@ function useToast() {
   return { toast, show };
 }
 
-// Picker robusto — sem listener de focus que dispara antes da hora
+// Picker — web only
 function pickLhubFile(): Promise<File | null> {
+  if (Platform.OS !== 'web') return Promise.resolve(null);
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    // Sem accept — .lhub é extensão desconhecida e browsers a escondem quando filtrada
     input.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
     document.body.appendChild(input);
-
     let resolved = false;
     const done = (file: File | null) => {
       if (resolved) return;
@@ -49,21 +48,10 @@ function pickLhubFile(): Promise<File | null> {
       try { document.body.removeChild(input); } catch {}
       resolve(file);
     };
-
-    input.addEventListener('change', () => {
-      done(input.files?.[0] ?? null);
-    });
-
-    // Fallback: se o usuário cancelar sem selecionar nada
-    // Usamos mousedown/keydown no documento para detectar interação após o picker fechar
-    const onDocInteract = () => {
-      setTimeout(() => {
-        if (!resolved) done(null);
-      }, 200);
-    };
+    input.addEventListener('change', () => done(input.files?.[0] ?? null));
+    const onDocInteract = () => { setTimeout(() => { if (!resolved) done(null); }, 200); };
     document.addEventListener('mousedown', onDocInteract, { once: true });
     document.addEventListener('keydown', onDocInteract, { once: true });
-
     input.click();
   });
 }
@@ -71,37 +59,26 @@ function pickLhubFile(): Promise<File | null> {
 export default function ExtensionsScreen() {
   const scheme = useColorScheme() ?? 'light';
   const colors = MD3[scheme];
-  const { extensions, installFromFile, uninstallExtension } = useExtensions();
+  const insets = useSafeAreaInsets();
+  const { extensions, installFromFile, installFromNative, uninstallExtension } = useExtensions();
   const [importing, setImporting] = useState(false);
   const { toast, show: showToast } = useToast();
 
   const handleImport = async () => {
-    if (Platform.OS !== 'web') {
-      showToast('Import is only supported on web.', 'error');
-      return;
-    }
-
     setImporting(true);
     try {
-      console.log('[lhub] Opening file picker...');
-      const file = await pickLhubFile();
-
-      if (!file) {
-        console.log('[lhub] No file selected.');
-        return;
-      }
-
-      console.log('[lhub] File selected:', file.name, 'size:', file.size);
-      const result = await installFromFile(file);
-      console.log('[lhub] Install result:', result);
-
-      if (result.ok) {
-        showToast('Extension installed successfully!', 'success');
+      if (Platform.OS === 'web') {
+        const file = await pickLhubFile();
+        if (!file) return;
+        const result = await installFromFile(file);
+        if (result.ok) showToast('Extension installed!', 'success');
+        else showToast(result.error ?? 'Unknown error', 'error');
       } else {
-        showToast(result.error ?? 'Unknown error', 'error');
+        const result = await installFromNative();
+        if (result.ok) showToast('Extension installed!', 'success');
+        else if (result.error !== 'cancelled') showToast(result.error ?? 'Unknown error', 'error');
       }
     } catch (e: any) {
-      console.error('[lhub] Unexpected error:', e);
       showToast(e.message, 'error');
     } finally {
       setImporting(false);
@@ -109,22 +86,36 @@ export default function ExtensionsScreen() {
   };
 
   const handleUninstall = (ext: InstalledExtension) => {
-    // Usar confirm nativo do browser no lugar de Alert
-    const ok = window.confirm(`Remove "${ext.manifest.name}"?\nThis extension and its tabs will be removed.`);
-    if (ok) {
-      uninstallExtension(ext.manifest.id);
-      showToast(`"${ext.manifest.name}" removed.`, 'success');
+    if (Platform.OS === 'web') {
+      const ok = (window as any).confirm(`Remove "${ext.manifest.name}"?\nThis extension and its tabs will be removed.`);
+      if (ok) { uninstallExtension(ext.manifest.id); showToast(`"${ext.manifest.name}" removed.`, 'success'); }
+    } else {
+      Alert.alert(
+        'Remove Extension',
+        `Remove "${ext.manifest.name}"?\nThis extension and its tabs will be removed.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Remove', style: 'destructive', onPress: () => {
+            uninstallExtension(ext.manifest.id);
+            showToast(`"${ext.manifest.name}" removed.`, 'success');
+          }},
+        ]
+      );
     }
   };
 
   return (
     <View style={[s.container, { backgroundColor: colors.surface }]}>
-      <StatusBar barStyle={scheme === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.surface} />
+      <StatusBar
+        translucent={false}
+        barStyle={scheme === 'dark' ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.surface}
+      />
 
-      {/* Toast */}
       {toast && (
         <View style={[s.toast, {
           backgroundColor: toast.type === 'success' ? colors.successContainer : colors.errorContainer,
+          marginTop: 12,
         }]}>
           <MaterialCommunityIcons
             name={toast.type === 'success' ? 'check-circle' : 'alert-circle'}
@@ -188,7 +179,7 @@ export default function ExtensionsScreen() {
         </View>
       )}
 
-      <View style={s.importArea}>
+      <View style={[s.importArea, { paddingBottom: Math.max(insets.bottom, 16) }]}>
         <TouchableOpacity
           style={[s.importBtn, { backgroundColor: importing ? colors.primaryContainer : colors.primary }]}
           onPress={handleImport}
@@ -213,7 +204,7 @@ export default function ExtensionsScreen() {
 
 const s = StyleSheet.create({
   container:       { flex: 1 },
-  toast:           { marginHorizontal: 16, marginTop: 12, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  toast:           { marginHorizontal: 16, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
   toastText:       { fontSize: 14, fontWeight: '500', flex: 1 },
   header:          { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 16, gap: 4 },
   title:           { fontSize: 28, fontWeight: '700' },
