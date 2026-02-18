@@ -23,6 +23,10 @@ jobs:
       - name: 📦 Install dependencies
         run: yarn install --frozen-lockfile
 
+      # 👇 GERA O BUNDLE JS AQUI (resolve Hermes no Termux)
+      - name: 📦 Export JS bundle
+        run: yarn expo export --platform android
+
       - name: ⚙️ Generate native android folder
         run: yarn expo prebuild --platform android --non-interactive
 
