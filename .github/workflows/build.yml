@@ -1,65 +1,48 @@
 name: Build APK
 
 on:
-  push:
-    branches:
-      - main
-      - master
+push:
+branches:
+- main
+- master
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+build:
+runs-on: ubuntu-latest
 
-    steps:
-      # 1️⃣ Checkout do repo
-      - name: 📥 Checkout repo
-        uses: actions/checkout@v4
+steps:  
+  - name: 📥 Checkout repo  
+    uses: actions/checkout@v4  
 
-      # 2️⃣ Setup Node
-      - name: 🟢 Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'yarn'
+  - name: 🟢 Setup Node  
+    uses: actions/setup-node@v4  
+    with:  
+      node-version: 20  
+      cache: 'yarn'  
 
-      # 3️⃣ Instalar dependências
-      - name: 📦 Install deps
-        run: yarn install --frozen-lockfile
+  # 1️⃣ INSTALA DEPENDÊNCIAS PRIMEIRO  
+  - name: 📦 Install deps  
+    run: yarn install --frozen-lockfile  
 
-      # 4️⃣ Prebuild Expo
-      - name: ⚙️ Expo prebuild
-        run: npx expo prebuild --platform android --non-interactive
+  # 2️⃣ PREBUILD AGORA FUNCIONA  
+  - name: ⚙️ Expo prebuild  
+    run: npx expo prebuild --platform android --non-interactive  
 
-      # 5️⃣ Bundle JS embutido
-      - name: 📦 Bundle JS embed
-        run: npx expo export:embed --platform android --dev false --eager
+  # 3️⃣ GERAR BUNDLE EMBED  
+  - name: 📦 Bundle JS  
+    run: npx expo export:embed --platform android --dev false --eager  
 
-      # 6️⃣ Permissão do Gradle
-      - name: 🔧 Give gradle permission
-        run: chmod +x android/gradlew
+  # 4️⃣ PERMISSÃO GRADLE  
+  - name: 🔧 Give gradle permission  
+    run: cd android && chmod +x gradlew  
 
-      # 7️⃣ Garantir que o Gradle consiga resolver plugins
-      - name: 🔧 Add plugin repositories
-        run: |
-          echo "pluginManagement { repositories { gradlePluginPortal(); google(); mavenCentral() } }" >> android/settings.gradle.kts
+  # 5️⃣ BUILD RELEASE  
+  - name: 🏗️ Build APK  
+    run: cd android && ./gradlew assembleRelease \ --parallel \ --configure-on-demand \ --daemon \ --offline
 
-      # 8️⃣ Build APK Release rápido
-      - name: 🏗️ Build APK Release
-        run: |
-          cd android
-          ./gradlew assembleRelease \
-            --parallel \
-            --configure-on-demand \
-            --daemon \
-            --offline \
-            -Pandroid.injected.signing.store.file=./keystore.jks \
-            -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
-            -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
-            -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
-
-      # 9️⃣ Upload APK
-      - name: 📤 Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-release
-          path: android/app/build/outputs/apk/release/*.apk
+  # 6️⃣ UPLOAD  
+  - name: 📤 Upload APK  
+    uses: actions/upload-artifact@v4  
+    with:  
+      name: app-release  
+      path: android/app/build/outputs/apk/release/*.apk
