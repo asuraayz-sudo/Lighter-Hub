@@ -21,7 +21,7 @@ import React, {
   createContext, useContext, useState, useEffect, useRef, useCallback, useMemo,
 } from 'react';
 import {
-  Platform, View, Text, StyleSheet, StatusBar, ActivityIndicator, NativeModules,
+  Platform, View, Text, StyleSheet, StatusBar, ActivityIndicator,
 } from 'react-native';
 
 // ─── Music types ──────────────────────────────────────────────────────────────
@@ -158,58 +158,20 @@ function LhubVideoPlayer({ options, onClose }: { options: VideoPlayerOptions; on
     } catch { setError('expo-av não disponível.'); }
   }, []);
 
-  // Força landscape + fullscreen imersivo sticky (esconde status bar + navigation bar Android)
+  // Força landscape + fullscreen imersivo (esconde barra de navegação Android)
   useEffect(() => {
     let locked = false;
-
-    // 1. Landscape
+    try { const SO = require('expo-screen-orientation'); SO.lockAsync(SO.OrientationLock.LANDSCAPE).catch(() => {}); locked = true; } catch (_) {}
+    // Esconde navigation bar do Android (fullscreen imersivo)
     try {
-      const SO = require('expo-screen-orientation');
-      SO.lockAsync(SO.OrientationLock.LANDSCAPE).catch(() => {});
-      locked = true;
+      const NB = require('expo-navigation-bar');
+      NB.setVisibilityAsync('hidden').catch(() => {});
+      NB.setBehaviorAsync('overlay-swipe').catch(() => {});
     } catch (_) {}
-
-    // 2. Fullscreen imersivo — três camadas para garantir em qualquer versão Android
-    const enterImmersive = () => {
-      // Camada A: expo-navigation-bar (Expo SDK 43+)
-      try {
-        const NB = require('expo-navigation-bar');
-        NB.setVisibilityAsync('hidden').catch(() => {});
-        // 'immersive-sticky' reesconde automaticamente após swipe do usuário
-        NB.setBehaviorAsync('immersive-sticky').catch(() => {});
-      } catch (_) {}
-
-      // Camada B: NativeModules.ExpoNavigationBar direto (fallback)
-      try {
-        if (NativeModules.ExpoNavigationBar) {
-          NativeModules.ExpoNavigationBar.setVisibilityAsync?.('hidden');
-        }
-      } catch (_) {}
-
-      // Camada C: StatusBar oculta
-      StatusBar.setHidden(true, 'none');
-    };
-
-    enterImmersive();
-
-    // Re-aplica após 300ms (alguns dispositivos ignoram na primeira chamada)
-    const t1 = setTimeout(enterImmersive, 300);
-    // Re-aplica após 1s (garante após animações de transição de tela)
-    const t2 = setTimeout(enterImmersive, 1000);
-
     return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      // Restaura portrait
-      if (locked) {
-        try { const SO = require('expo-screen-orientation'); SO.lockAsync(SO.OrientationLock.PORTRAIT_UP).catch(() => {}); } catch (_) {}
-      }
+      if (locked) { try { const SO = require('expo-screen-orientation'); SO.lockAsync(SO.OrientationLock.PORTRAIT_UP).catch(() => {}); } catch (_) {} }
       // Restaura navigation bar
-      try {
-        const NB = require('expo-navigation-bar');
-        NB.setVisibilityAsync('visible').catch(() => {});
-      } catch (_) {}
-      StatusBar.setHidden(false, 'none');
+      try { const NB = require('expo-navigation-bar'); NB.setVisibilityAsync('visible').catch(() => {}); } catch (_) {}
     };
   }, []);
 
@@ -260,15 +222,13 @@ function LhubVideoPlayer({ options, onClose }: { options: VideoPlayerOptions; on
           source={(() => {
             const src: any = { uri: options.uri };
             if (options.headers) src.headers = options.headers;
-            // Fix HLS disfarçado (ex: .urlset/master.txt):
-            // src.type é ignorado pelo expo-av. O que realmente funciona é
-            // overrideFileExtensionWithExtension — instrui o ExoPlayer a tratar
-            // a URI como .m3u8 e usar HlsMediaSource independente da extensão real.
+            // Se a URL não termina em .m3u8 mas é HLS (ex: master.txt),
+            // passa o type explícito para o ExoPlayer não rejeitar
             const u = options.uri.toLowerCase();
             const looksLikeHls = u.includes('.m3u8') || u.includes('master.txt') ||
               (u.includes('.txt') && (u.includes('hls') || u.includes('urlset') || u.includes('master')));
             if (looksLikeHls && !u.includes('.mp4')) {
-              src.overrideFileExtensionWithExtension = 'm3u8';
+              src.type = 'application/x-mpegURL';
             }
             return src;
           })()}
