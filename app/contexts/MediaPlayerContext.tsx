@@ -158,11 +158,21 @@ function LhubVideoPlayer({ options, onClose }: { options: VideoPlayerOptions; on
     } catch { setError('expo-av não disponível.'); }
   }, []);
 
-  // Força landscape
+  // Força landscape + fullscreen imersivo (esconde barra de navegação Android)
   useEffect(() => {
     let locked = false;
     try { const SO = require('expo-screen-orientation'); SO.lockAsync(SO.OrientationLock.LANDSCAPE).catch(() => {}); locked = true; } catch (_) {}
-    return () => { if (locked) { try { const SO = require('expo-screen-orientation'); SO.lockAsync(SO.OrientationLock.PORTRAIT_UP).catch(() => {}); } catch (_) {} } };
+    // Esconde navigation bar do Android (fullscreen imersivo)
+    try {
+      const NB = require('expo-navigation-bar');
+      NB.setVisibilityAsync('hidden').catch(() => {});
+      NB.setBehaviorAsync('overlay-swipe').catch(() => {});
+    } catch (_) {}
+    return () => {
+      if (locked) { try { const SO = require('expo-screen-orientation'); SO.lockAsync(SO.OrientationLock.PORTRAIT_UP).catch(() => {}); } catch (_) {} }
+      // Restaura navigation bar
+      try { const NB = require('expo-navigation-bar'); NB.setVisibilityAsync('visible').catch(() => {}); } catch (_) {}
+    };
   }, []);
 
   const handleClose = useCallback(() => { options.onClose?.(); onClose(); }, [options, onClose]);
@@ -209,7 +219,19 @@ function LhubVideoPlayer({ options, onClose }: { options: VideoPlayerOptions; on
       ) : VideoComp ? (
         <VideoComp
           ref={videoRef}
-          source={options.headers ? { uri: options.uri, headers: options.headers } : { uri: options.uri }}
+          source={(() => {
+            const src: any = { uri: options.uri };
+            if (options.headers) src.headers = options.headers;
+            // Se a URL não termina em .m3u8 mas é HLS (ex: master.txt),
+            // passa o type explícito para o ExoPlayer não rejeitar
+            const u = options.uri.toLowerCase();
+            const looksLikeHls = u.includes('.m3u8') || u.includes('master.txt') ||
+              (u.includes('.txt') && (u.includes('hls') || u.includes('urlset') || u.includes('master')));
+            if (looksLikeHls && !u.includes('.mp4')) {
+              src.type = 'application/x-mpegURL';
+            }
+            return src;
+          })()}
           style={vs.video}
           resizeMode={ResizeMode?.CONTAIN ?? 'contain'}
           shouldPlay
