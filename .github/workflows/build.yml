@@ -11,37 +11,39 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Checkout do repo
       - name: 📥 Checkout repo
         uses: actions/checkout@v4
 
+      # 2️⃣ Setup Node
       - name: 🟢 Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'yarn'
 
-      # 1️⃣ Instalar dependências
+      # 3️⃣ Instalar dependências
       - name: 📦 Install deps
         run: yarn install --frozen-lockfile
 
-      # 2️⃣ Prebuild do Expo (gera android/ios nativo)
+      # 4️⃣ Prebuild Expo
       - name: ⚙️ Expo prebuild
         run: npx expo prebuild --platform android --non-interactive
 
-      # 3️⃣ Gerar bundle JS embed (para usar no APK sem metro server)
+      # 5️⃣ Bundle JS embutido
       - name: 📦 Bundle JS embed
         run: npx expo export:embed --platform android --dev false --eager
 
-      # 4️⃣ Dar permissão ao Gradle
+      # 6️⃣ Permissão do Gradle
       - name: 🔧 Give gradle permission
         run: chmod +x android/gradlew
 
-      # 5️⃣ Garantir que o Gradle consiga resolver o plugin
+      # 7️⃣ Garantir que o Gradle consiga resolver plugins
       - name: 🔧 Add plugin repositories
         run: |
           echo "pluginManagement { repositories { gradlePluginPortal(); google(); mavenCentral() } }" >> android/settings.gradle.kts
 
-      # 6️⃣ Build APK release rápido
+      # 8️⃣ Build APK Release rápido
       - name: 🏗️ Build APK Release
         run: |
           cd android
@@ -55,7 +57,7 @@ jobs:
             -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
             -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
 
-      # 7️⃣ Upload APK
+      # 9️⃣ Upload APK
       - name: 📤 Upload APK
         uses: actions/upload-artifact@v4
         with:
