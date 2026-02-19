@@ -84,6 +84,8 @@ export interface VideoPlayerOptions {
   loop?:          boolean;
   onEnd?:         () => void;
   onClose?:       () => void;
+  /** Headers HTTP para o ExoPlayer (Referer, Origin, User-Agent, etc.) */
+  headers?:       Record<string, string>;
   /** Componente customizado de controles. Recebe VideoControlsAPI. */
   renderControls?: (api: VideoControlsAPI) => React.ReactNode;
 }
@@ -404,7 +406,10 @@ function LhubVideoPlayer({ options, onClose }: { options: VideoPlayerOptions; on
       ) : VideoComp ? (
         <VideoComp
           ref={videoRef}
-          source={{ uri: options.uri }}
+          source={options.headers
+            ? { uri: options.uri, headers: options.headers }
+            : { uri: options.uri }
+          }
           style={vs.video}
           resizeMode={ResizeMode?.CONTAIN ?? 'contain'}
           shouldPlay
