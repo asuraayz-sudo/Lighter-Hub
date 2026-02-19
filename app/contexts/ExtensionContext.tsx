@@ -155,7 +155,10 @@ function buildAPI() {
   };
 
   // ── Video Player API ────────────────────────────────────────────────────────
-  // Extensões chamam: videoPlayer.open({ uri, title, startPosition, loop, onEnd, onClose })
+  // Extensões chamam: videoPlayer.open({ uri, title, startPosition, loop, onEnd, onClose, renderControls })
+  //   renderControls: (api: VideoControlsAPI) => React.ReactNode
+  //   VideoControlsAPI = { isPlaying, duration, position, buffered, isBuffering, isEnded,
+  //                        uri, title, play(), pause(), togglePlay(), seek(s), skip(s), close() }
   //                   videoPlayer.close()
   //                   videoPlayer.isOpen()
   const videoPlayer = {
