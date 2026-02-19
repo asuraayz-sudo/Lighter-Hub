@@ -1,10 +1,15 @@
 #!/data/data/com.termux/files/usr/bin/bash
+set -e
+
+echo "📂 Indo para o repo..."
+cd ~/Lighter-Hub
 
 echo "🔄 Preparando mudanças..."
 git add .
 
 if git diff --cached --quiet; then
-  echo "✔️ Nada novo pra commit"
+  echo "✔️ Nada novo pra commit — criando commit vazio pra disparar build"
+  git commit --allow-empty -m "trigger build $(date +%H:%M:%S)"
 else
   git commit -m "auto build $(date +%H:%M:%S)"
 fi
@@ -16,7 +21,7 @@ echo "🚀 Enviando pro GitHub..."
 git push origin main
 
 echo "⏳ Esperando workflow iniciar..."
-sleep 25
+sleep 20
 
 REPO="asuraayz-sudo/Lighter-Hub"
 
