@@ -36,15 +36,15 @@ jobs:
       - name: 🔧 Give gradle permission
         run: chmod +x android/gradlew
 
-      # 5️⃣ Build APK release rápido (Gradle compatível + plugin resolvido)
-      - name: 🏗️ Build APK Release rápido
+      # 5️⃣ Garantir que o Gradle consiga resolver o plugin
+      - name: 🔧 Add plugin repositories
+        run: |
+          echo "pluginManagement { repositories { gradlePluginPortal(); google(); mavenCentral() } }" >> android/settings.gradle.kts
+
+      # 6️⃣ Build APK release rápido
+      - name: 🏗️ Build APK Release
         run: |
           cd android
-          # Força o uso de Gradle compatível (7.6 funciona bem com React Native/Expo)
-          ./gradlew wrapper --gradle-version 7.6
-          # Adiciona repositórios para plugins caso não estejam definidos
-          echo "pluginManagement { repositories { gradlePluginPortal(); google(); mavenCentral() } }" >> settings.gradle.kts
-          # Build rápido com flags de performance
           ./gradlew assembleRelease \
             --parallel \
             --configure-on-demand \
@@ -55,7 +55,7 @@ jobs:
             -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
             -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
 
-      # 6️⃣ Upload APK
+      # 7️⃣ Upload APK
       - name: 📤 Upload APK
         uses: actions/upload-artifact@v4
         with:
