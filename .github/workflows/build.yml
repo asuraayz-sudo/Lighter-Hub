@@ -38,7 +38,13 @@ steps:
 
   # 5️⃣ BUILD RELEASE  
   - name: 🏗️ Build APK  
-    run: cd android && ./gradlew assembleRelease \ --parallel \ --configure-on-demand \ --daemon \ --offline
+    run: |
+      cd android
+      ./gradlew assembleRelease \ 
+      --parallel \ 
+      --configure-on-demand \ 
+      --daemon \ 
+      --offline
 
   # 6️⃣ UPLOAD  
   - name: 📤 Upload APK  
