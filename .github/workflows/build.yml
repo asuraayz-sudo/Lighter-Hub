@@ -1,54 +1,54 @@
 name: Build APK
 
 on:
-push:
-branches:
-- main
-- master
+  push:
+    branches:
+      - main
+      - master
 
 jobs:
-build:
-runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-latest
 
-steps:  
-  - name: 📥 Checkout repo  
-    uses: actions/checkout@v4  
+    steps:  
+      - name: 📥 Checkout repo  
+        uses: actions/checkout@v4  
 
-  - name: 🟢 Setup Node  
-    uses: actions/setup-node@v4  
-    with:  
-      node-version: 20  
-      cache: 'yarn'  
+      - name: 🟢 Setup Node  
+        uses: actions/setup-node@v4  
+        with:  
+          node-version: 20  
+          cache: 'yarn'  
 
-  # 1️⃣ INSTALA DEPENDÊNCIAS PRIMEIRO  
-  - name: 📦 Install deps  
-    run: yarn install --frozen-lockfile  
+      # 1️⃣ INSTALA DEPENDÊNCIAS PRIMEIRO  
+      - name: 📦 Install deps  
+        run: yarn install --frozen-lockfile  
 
-  # 2️⃣ PREBUILD AGORA FUNCIONA  
-  - name: ⚙️ Expo prebuild  
-    run: npx expo prebuild --platform android --non-interactive  
+      # 2️⃣ PREBUILD AGORA FUNCIONA  
+      - name: ⚙️ Expo prebuild  
+        run: npx expo prebuild --platform android --non-interactive  
 
-  # 3️⃣ GERAR BUNDLE EMBED  
-  - name: 📦 Bundle JS  
-    run: npx expo export:embed --platform android --dev false --eager  
+      # 3️⃣ GERAR BUNDLE EMBED  
+      - name: 📦 Bundle JS  
+        run: npx expo export:embed --platform android --dev false --eager  
 
-  # 4️⃣ PERMISSÃO GRADLE  
-  - name: 🔧 Give gradle permission  
-    run: cd android && chmod +x gradlew  
+      # 4️⃣ PERMISSÃO GRADLE  
+      - name: 🔧 Give gradle permission  
+        run: cd android && chmod +x gradlew  
 
-  # 5️⃣ BUILD RELEASE  
-  - name: 🏗️ Build APK  
-    run: |
-      cd android
-      ./gradlew assembleRelease \ 
-      --parallel \ 
-      --configure-on-demand \ 
-      --daemon \ 
-      --offline
+      # 5️⃣ BUILD RELEASE  
+      - name: 🏗️ Build APK  
+        run: |
+          cd android
+          ./gradlew assembleRelease \
+            --parallel \
+            --configure-on-demand \
+            --daemon \
+            --offline
 
-  # 6️⃣ UPLOAD  
-  - name: 📤 Upload APK  
-    uses: actions/upload-artifact@v4  
-    with:  
-      name: app-release  
-      path: android/app/build/outputs/apk/release/*.apk
+      # 6️⃣ UPLOAD  
+      - name: 📤 Upload APK  
+        uses: actions/upload-artifact@v4  
+        with:  
+          name: app-release  
+          path: android/app/build/outputs/apk/release/*.apk
