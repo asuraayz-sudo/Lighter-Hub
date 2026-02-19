@@ -20,28 +20,28 @@ jobs:
           node-version: 20
           cache: 'yarn'
 
-      # 1️⃣ PREBUILD IGUAL AO EXPO CLOUD
-      - name: ⚙️ Expo prebuild (no install)
-        run: npx expo prebuild --no-install --platform android
-
-      # 2️⃣ INSTALL DEPS DEPOIS DO PREBUILD
-      - name: 📦 Yarn install
+      # 1️⃣ INSTALA DEPENDÊNCIAS PRIMEIRO
+      - name: 📦 Install deps
         run: yarn install --frozen-lockfile
 
-      # 3️⃣ GERAR BUNDLE JS (MESMO COMANDO DO CLOUD BUILD)
-      - name: 📦 Bundle JS (export embed)
+      # 2️⃣ PREBUILD AGORA FUNCIONA
+      - name: ⚙️ Expo prebuild
+        run: npx expo prebuild --platform android --non-interactive
+
+      # 3️⃣ GERAR BUNDLE EMBED
+      - name: 📦 Bundle JS
         run: npx expo export:embed --platform android --dev false --eager
 
       # 4️⃣ PERMISSÃO GRADLE
       - name: 🔧 Give gradle permission
         run: cd android && chmod +x gradlew
 
-      # 5️⃣ BUILD APK RELEASE (igual ao log que você mandou)
-      - name: 🏗️ Build release APK
+      # 5️⃣ BUILD RELEASE
+      - name: 🏗️ Build APK
         run: cd android && ./gradlew assembleRelease
 
-      # 6️⃣ UPLOAD APK
-      - name: 📤 Upload APK artifact
+      # 6️⃣ UPLOAD
+      - name: 📤 Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-release
