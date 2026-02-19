@@ -171,18 +171,31 @@ function DefaultControls({ api }: { api: VideoControlsAPI }) {
   const barWidth     = useRef(W - 32);
   const barRef       = useRef<View>(null);
 
-  const resetHide = useCallback(() => {
+  const hideControls = useCallback(() => {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    Animated.timing(ctrlOpacity, { toValue: 0, duration: 280, useNativeDriver: true }).start(() => setShowCtrl(false));
+  }, []);
+
+  const showControls = useCallback(() => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
     Animated.timing(ctrlOpacity, { toValue: 1, duration: 150, useNativeDriver: true }).start();
     setShowCtrl(true);
     hideTimer.current = setTimeout(() => {
-      if (!seeking) {
-        Animated.timing(ctrlOpacity, { toValue: 0, duration: 280, useNativeDriver: true }).start(() => setShowCtrl(false));
-      }
+      if (!seeking) hideControls();
     }, 3500);
-  }, [seeking]);
+  }, [seeking, hideControls]);
 
-  useEffect(() => { resetHide(); }, []);
+  const resetHide = showControls;
+
+  const toggleControls = useCallback(() => {
+    if (showCtrl) {
+      hideControls();
+    } else {
+      showControls();
+    }
+  }, [showCtrl, showControls, hideControls]);
+
+  useEffect(() => { showControls(); }, []);
 
   const pan = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
@@ -248,7 +261,7 @@ function DefaultControls({ api }: { api: VideoControlsAPI }) {
   return (
     <View style={S.root} pointerEvents="box-none">
       {/* Tap to toggle */}
-      <TouchableWithoutFeedback onPress={resetHide}>
+      <TouchableWithoutFeedback onPress={toggleControls}>
         <View style={StyleSheet.absoluteFill} />
       </TouchableWithoutFeedback>
 
