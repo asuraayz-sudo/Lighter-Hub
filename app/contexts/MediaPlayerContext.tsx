@@ -134,12 +134,88 @@ async function clearNativeMediaNotification() {
   try { const TP = require('react-native-track-player').default; await TP.reset(); } catch (_) {}
 }
 
+// ─── HLS Proxy Cache ──────────────────────────────────────────────────────────
+// Resolve qualquer URL de stream (HLS .m3u8, HLS disfarçado .txt, mp4, etc.)
+// para um arquivo local no cache com extensão correta.
+// O ExoPlayer recebe um file:// URI sem ambiguidade de formato.
+
+async function resolveToLocalCache(
+  uri: string,
+  headers?: Record<string, string>
+): Promise<string> {
+  // Se for mp4 direto ou já for file://, não precisa de proxy
+  const u = uri.toLowerCase();
+  if (u.startsWith('file://')) return uri;
+  if (u.match(/\.mp4(\?|#|$)/) && !u.includes('.txt')) return uri;
+
+  // Detecta se é HLS (m3u8 ou txt disfarçado)
+  const isHls = u.includes('.m3u8') || u.includes('.txt');
+  if (!isHls) return uri; // outros formatos: mp4 direto, etc
+
+  try {
+    const FileSystem = require('expo-file-system/legacy');
+    const cacheDir: string = FileSystem.cacheDirectory || '';
+    if (!cacheDir) return uri;
+
+    // Nome de arquivo único baseado na URL
+    const hash = uri.replace(/[^a-zA-Z0-9]/g, '').slice(-40);
+    const localPath = cacheDir + 'hls_proxy_' + hash + '.m3u8';
+
+    // Fetch do manifesto com os headers corretos
+    const fetchHeaders: Record<string, string> = {
+      'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+      ...(headers || {}),
+    };
+
+    const resp = await fetch(uri, { headers: fetchHeaders });
+    if (!resp.ok) {
+      console.warn('[HLSProxy] fetch status', resp.status, '— usando URL original');
+      return uri;
+    }
+
+    const txt = await resp.text();
+
+    // Verifica se é realmente um manifesto HLS
+    if (!txt.includes('#EXTM3U') && !txt.includes('#EXT-X-')) {
+      console.warn('[HLSProxy] conteúdo não parece HLS — usando URL original');
+      return uri;
+    }
+
+    // Reescreve URLs relativas → absolutas
+    const baseUrl = uri.substring(0, uri.lastIndexOf('/') + 1);
+    const rewritten = txt.split('\n').map((line: string) => {
+      const t = line.trim();
+      if (!t) return line;
+      // Linhas de comentário: reescreve apenas URI="..."
+      if (t.startsWith('#')) {
+        return line.replace(/URI="([^"]+)"/g, (_m: string, relUri: string) => {
+          if (relUri.startsWith('http') || relUri.startsWith('file')) return _m;
+          return `URI="${baseUrl}${relUri}"`;
+        });
+      }
+      // Linha de segmento ou variante: torna absoluta
+      if (t.startsWith('http') || t.startsWith('file')) return line;
+      return baseUrl + t;
+    }).join('\n');
+
+    // Salva no cache como .m3u8
+    await FileSystem.writeAsStringAsync(localPath, rewritten, { encoding: 'utf8' });
+    console.log('[HLSProxy] salvo em cache:', localPath);
+    return localPath;
+
+  } catch (e: any) {
+    console.warn('[HLSProxy] erro, usando URL original:', e?.message);
+    return uri;
+  }
+}
+
 // ─── Motor de vídeo — zero UI própria ────────────────────────────────────────
 
 function LhubVideoPlayer({ options, onClose }: { options: VideoPlayerOptions; onClose: () => void }) {
   const [VideoComp, setVideoComp]   = useState<any>(null);
   const [ResizeMode, setResizeMode] = useState<any>(null);
   const [error, setError]           = useState('');
+  const [resolvedUri, setResolvedUri] = useState<string | null>(null);
   const videoRef = useRef<any>(null);
 
   const [isPlaying,   setIsPlaying]   = useState(false);
@@ -157,6 +233,18 @@ function LhubVideoPlayer({ options, onClose }: { options: VideoPlayerOptions; on
       setResizeMode(av.ResizeMode ?? { CONTAIN: 'contain' });
     } catch { setError('expo-av não disponível.'); }
   }, []);
+
+  // Resolve a URI: baixa manifesto HLS (.txt, .m3u8), reescreve URLs relativas
+  // para absolutas, salva como .m3u8 no cache e passa file:// ao ExoPlayer.
+  // Para mp4 direto ou file:// existente, retorna a URI sem modificação.
+  useEffect(() => {
+    let cancelled = false;
+    setResolvedUri(null);
+    resolveToLocalCache(options.uri, options.headers)
+      .then(local => { if (!cancelled) setResolvedUri(local); })
+      .catch(() => { if (!cancelled) setResolvedUri(options.uri); });
+    return () => { cancelled = true; };
+  }, [options.uri]);
 
   // Força landscape + fullscreen imersivo sticky (esconde status bar + navigation bar Android)
   useEffect(() => {
@@ -254,21 +342,14 @@ function LhubVideoPlayer({ options, onClose }: { options: VideoPlayerOptions; on
         <View style={vs.err}>
           <Text style={vs.errTxt}>{error}</Text>
         </View>
-      ) : VideoComp ? (
+      ) : VideoComp && resolvedUri ? (
         <VideoComp
           ref={videoRef}
           source={(() => {
-            const src: any = { uri: options.uri };
-            if (options.headers) src.headers = options.headers;
-            // Fix HLS disfarçado (ex: .urlset/master.txt):
-            // src.type é ignorado pelo expo-av. O que realmente funciona é
-            // overrideFileExtensionWithExtension — instrui o ExoPlayer a tratar
-            // a URI como .m3u8 e usar HlsMediaSource independente da extensão real.
-            const u = options.uri.toLowerCase();
-            const looksLikeHls = u.includes('.m3u8') || u.includes('master.txt') ||
-              (u.includes('.txt') && (u.includes('hls') || u.includes('urlset') || u.includes('master')));
-            if (looksLikeHls && !u.includes('.mp4')) {
-              src.overrideFileExtensionWithExtension = 'm3u8';
+            const src: any = { uri: resolvedUri };
+            // Headers só para URLs remotas — file:// não precisa
+            if (options.headers && !resolvedUri.startsWith('file://')) {
+              src.headers = options.headers;
             }
             return src;
           })()}
@@ -282,6 +363,7 @@ function LhubVideoPlayer({ options, onClose }: { options: VideoPlayerOptions; on
       ) : (
         <View style={vs.err}>
           <ActivityIndicator size="large" color="#fff" />
+          {!resolvedUri && <Text style={[vs.errTxt, {marginTop: 12, fontSize: 12, opacity: 0.6}]}>Preparando stream…</Text>}
         </View>
       )}
 
