@@ -36,10 +36,15 @@ jobs:
       - name: 🔧 Give gradle permission
         run: chmod +x android/gradlew
 
-      # 5️⃣ Build APK release com otimizações
+      # 5️⃣ Build APK release rápido (Gradle compatível + plugin resolvido)
       - name: 🏗️ Build APK Release rápido
         run: |
           cd android
+          # Força o uso de Gradle compatível (7.6 funciona bem com React Native/Expo)
+          ./gradlew wrapper --gradle-version 7.6
+          # Adiciona repositórios para plugins caso não estejam definidos
+          echo "pluginManagement { repositories { gradlePluginPortal(); google(); mavenCentral() } }" >> settings.gradle.kts
+          # Build rápido com flags de performance
           ./gradlew assembleRelease \
             --parallel \
             --configure-on-demand \
