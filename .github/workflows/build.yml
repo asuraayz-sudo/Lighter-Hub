@@ -38,7 +38,14 @@ jobs:
 
       # 5️⃣ BUILD RELEASE  
       - name: 🏗️ Build APK  
-        run: cd android && ./gradlew assembleRelease
+        run: |
+         cd android
+         ./gradlew assembleDebug \
+           -Dorg.gradle.daemon=true \
+           -Dorg.gradle.parallel=true \
+           -Dorg.gradle.configureondemand=true \
+           -Dorg.gradle.caching=true \
+           -Dorg.gradle.workers.max=4
       # 6️⃣ UPLOAD  
       - name: 📤 Upload APK  
         uses: actions/upload-artifact@v4  
