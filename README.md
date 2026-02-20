@@ -7,6 +7,17 @@
 **A modular, extension-powered media platform built with React Native & Expo.**  
 Install `.lhub` extensions and unlock infinite content providers — movies, series, music and more.
 
+<div style="display: flex;">
+    <img src="./assets/print1.png" width="120"/>
+    <img src="./assets/print2.png" width="120"/>
+</div>
+<div style="display: flex;">
+    <img src="./assets/print3.png" width="120"/>
+    <img src="./assets/print4.png" width="120"/>
+    <img src="./assets/print5.png" width="120"/>
+</div>
+
+
 [![React Native](https://img.shields.io/badge/React%20Native-0.76-61DAFB?style=flat-square&logo=react)](https://reactnative.dev)
 [![Expo](https://img.shields.io/badge/Expo-SDK%2052-000020?style=flat-square&logo=expo)](https://expo.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
